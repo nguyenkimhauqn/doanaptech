@@ -1,0 +1,30 @@
+# CSV files - quá lớn để push lên GitHub
+*.csv
+*.CSV
+
+# Thư mục chứa dữ liệu đã làm sạch
+healthcare_data_large_cleaned/
+**/healthcare_data_large_cleaned/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
