@@ -23,7 +23,7 @@ pd.set_option('display.width', None)
 # ============================================================================
 
 # Đường dẫn thư mục
-DATA_DIR = "./"
+DATA_DIR = "data/"
 
 # Danh sách các file cần xử lý
 FILES = {
@@ -673,7 +673,7 @@ def generate_summary_report(data, missing_report, duplicate_report, integrity_is
 # BƯỚC 11: LƯU DỮ LIỆU
 # ============================================================================
 
-def save_cleaned_data(data, output_dir='healthcare_data_large_cleaned/'):
+def save_cleaned_data(data, output_dir='cleaned_data/'):
     """Lưu dữ liệu đã được làm sạch"""
     # Tạo thư mục output nếu chưa có
     os.makedirs(output_dir, exist_ok=True)
