@@ -90,23 +90,30 @@ def prepare_data_for_clustering(df):
     
     df_clean = df[features].copy()
     
-    # Encoding
-    le_dict = {}
+    # Encoding với One-Hot Encoding cho categorical variables
+    # Để có đủ features cho PCA
     df_encoded = pd.DataFrame()
     
-    for col in features:
-        if col == 'tuoi':
-            df_encoded[col] = df_clean[col]
-        else:
-            le = LabelEncoder()
-            df_encoded[col] = le.fit_transform(df_clean[col].astype(str))
-            le_dict[col] = le
+    # Thêm cột số trực tiếp
+    df_encoded['tuoi'] = df_clean['tuoi']
+    
+    # One-Hot Encoding cho các cột categorical
+    categorical_features = [col for col in features if col != 'tuoi']
+    
+    for col in categorical_features:
+        # Giới hạn số categories để tránh quá nhiều features
+        top_categories = df_clean[col].value_counts().head(10).index
+        df_temp = df_clean[col].apply(lambda x: x if x in top_categories else 'Other')
+        
+        # One-hot encoding
+        dummies = pd.get_dummies(df_temp, prefix=col, drop_first=True)
+        df_encoded = pd.concat([df_encoded, dummies], axis=1)
     
     # Standardization
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(df_encoded)
     
-    return X_scaled, df_encoded, scaler, le_dict
+    return X_scaled, df_encoded, scaler, None
 
 @st.cache_data
 def perform_kmeans(X, n_clusters=4):
@@ -128,6 +135,15 @@ def perform_kmeans(X, n_clusters=4):
 @st.cache_data
 def perform_pca(X, n_components=30):
     """Thực hiện PCA"""
+    # Điều chỉnh n_components nếu lớn hơn số features
+    n_features = X.shape[1]
+    n_samples = X.shape[0]
+    max_components = min(n_samples, n_features)
+    
+    if n_components > max_components:
+        n_components = max_components
+        st.warning(f"⚠️ Điều chỉnh n_components từ 30 xuống {max_components} (số features khả dụng)")
+    
     pca = PCA(n_components=n_components)
     X_pca = pca.fit_transform(X)
     
@@ -787,6 +803,9 @@ elif page == "🔍 PCA Analysis":
     with st.spinner("Đang chuẩn bị dữ liệu..."):
         X_scaled, df_encoded, scaler, le_dict = prepare_data_for_clustering(df)
     
+    # Hiển thị thông tin về features
+    st.info(f"📊 Dữ liệu sau encoding: **{X_scaled.shape[0]:,}** samples × **{X_scaled.shape[1]}** features")
+    
     # Tabs
     tabs = st.tabs([
         "📊 Scree Plot",
@@ -799,7 +818,14 @@ elif page == "🔍 PCA Analysis":
     with tabs[0]:
         st.subheader("📊 Scree Plot - Explained Variance")
         
-        n_components = st.slider("Số Principal Components:", 5, 50, 30)
+        # Xác định max components có thể
+        max_n_components = min(X_scaled.shape[0], X_scaled.shape[1])
+        default_n_components = min(30, max_n_components)
+        
+        n_components = st.slider("Số Principal Components:", 
+                                 min_value=2, 
+                                 max_value=max_n_components, 
+                                 value=default_n_components)
         
         with st.spinner("Đang thực hiện PCA..."):
             pca_full = PCA()
@@ -867,7 +893,9 @@ elif page == "🔍 PCA Analysis":
     with tabs[1]:
         st.subheader("🎯 Explained Variance - Chi tiết")
         
-        n_pcs = 30
+        # Xác định số PCs hợp lý
+        max_n_components = min(X_scaled.shape[0], X_scaled.shape[1])
+        n_pcs = min(30, max_n_components)
         X_pca, pca = perform_pca(X_scaled, n_pcs)
         
         col1, col2, col3 = st.columns(3)
@@ -904,7 +932,10 @@ elif page == "🔍 PCA Analysis":
     with tabs[2]:
         st.subheader("🔍 PC Loadings - Đóng góp của Features")
         
-        X_pca, pca = perform_pca(X_scaled, 30)
+        # Xác định số PCs hợp lý
+        max_n_components = min(X_scaled.shape[0], X_scaled.shape[1])
+        n_pcs = min(30, max_n_components)
+        X_pca, pca = perform_pca(X_scaled, n_pcs)
         
         # Chọn PC để xem
         selected_pc = st.selectbox("Chọn Principal Component:", [f'PC{i+1}' for i in range(10)])
@@ -976,7 +1007,10 @@ elif page == "🔍 PCA Analysis":
     with tabs[3]:
         st.subheader("📈 PCA Visualization - 2D & 3D")
         
-        X_pca, pca = perform_pca(X_scaled, 30)
+        # Xác định số PCs hợp lý (tối thiểu 3 cho 3D visualization)
+        max_n_components = min(X_scaled.shape[0], X_scaled.shape[1])
+        n_pcs = min(30, max_n_components)
+        X_pca, pca = perform_pca(X_scaled, n_pcs)
         
         # Thêm PCA vào dataframe
         df_pca = df.copy()
@@ -1032,9 +1066,14 @@ elif page == "🔬 PCA + KMeans":
     
     with st.spinner("Đang chuẩn bị dữ liệu và thực hiện PCA..."):
         X_scaled, df_encoded, scaler, le_dict = prepare_data_for_clustering(df)
-        X_pca, pca = perform_pca(X_scaled, 30)
+        
+        # Xác định số PCs hợp lý
+        n_features = X_scaled.shape[1]
+        n_components = min(30, n_features)
+        
+        X_pca, pca = perform_pca(X_scaled, n_components)
     
-    st.success("✅ PCA hoàn thành! Đã giảm từ {} features xuống 30 PCs".format(X_scaled.shape[1]))
+    st.success(f"✅ PCA hoàn thành! Đã giảm từ {X_scaled.shape[1]} features xuống {X_pca.shape[1]} PCs")
     
     # Tabs
     tabs = st.tabs([
@@ -1274,7 +1313,11 @@ elif page == "⚖️ So sánh Raw vs PCA":
     with st.spinner("Đang thực hiện phân tích so sánh..."):
         # Chuẩn bị dữ liệu
         X_scaled, df_encoded, scaler, le_dict = prepare_data_for_clustering(df)
-        X_pca, pca = perform_pca(X_scaled, 30)
+        
+        # Xác định số PCs hợp lý
+        max_n_components = min(X_scaled.shape[0], X_scaled.shape[1])
+        n_components = min(30, max_n_components)
+        X_pca, pca = perform_pca(X_scaled, n_components)
         
         # Clustering trên cả hai
         clusters_raw, kmeans_raw, metrics_raw = perform_kmeans(X_scaled, 4)
@@ -1446,7 +1489,11 @@ elif page == "💡 Insights & Kết luận":
     # Thực hiện phân tích
     with st.spinner("Đang tổng hợp insights..."):
         X_scaled, df_encoded, scaler, le_dict = prepare_data_for_clustering(df)
-        X_pca, pca = perform_pca(X_scaled, 30)
+        
+        # Xác định số PCs hợp lý
+        max_n_components = min(X_scaled.shape[0], X_scaled.shape[1])
+        n_components = min(30, max_n_components)
+        X_pca, pca = perform_pca(X_scaled, n_components)
         clusters_raw, kmeans_raw, metrics_raw = perform_kmeans(X_scaled, 4)
         clusters_pca, kmeans_pca, metrics_pca = perform_kmeans(X_pca, 4)
     
