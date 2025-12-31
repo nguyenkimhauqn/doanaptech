@@ -50,18 +50,36 @@ plt.rcParams['axes.unicode_minus'] = False
 @st.cache_data
 def load_data():
     """Load dữ liệu từ file CSV"""
-    try:
-        df = pd.read_csv('result.csv', encoding='utf-8')
-        # Làm sạch dữ liệu
-        important_cols = ['gioi_tinh', 'nhom_tuoi', 'chuan_doan']
-        df_clean = df.dropna(subset=important_cols).copy()
-        return df_clean
-    except FileNotFoundError:
-        st.error("❌ Không tìm thấy file 'result.csv'. Vui lòng đảm bảo file nằm trong cùng thư mục với script này.")
-        return None
-    except Exception as e:
-        st.error(f"❌ Lỗi khi đọc dữ liệu: {e}")
-        return None
+    import os
+    
+    # Thử các đường dẫn có thể
+    possible_paths = [
+        'result.csv',
+        'App/result.csv',
+        'result_mini.csv',
+        'App/result_mini.csv',
+        'result_sample.csv',
+        'App/result_sample.csv'
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            try:
+                df = pd.read_csv(path, encoding='utf-8')
+                # Làm sạch dữ liệu
+                important_cols = ['gioi_tinh', 'nhom_tuoi', 'chuan_doan']
+                df_clean = df.dropna(subset=important_cols).copy()
+                
+                if path.endswith('_sample.csv'):
+                    st.info(f"ℹ️ Đang sử dụng sample data: {len(df_clean):,} bản ghi")
+                
+                return df_clean
+            except Exception as e:
+                st.warning(f"⚠️ Lỗi đọc file {path}: {e}")
+                continue
+    
+    st.error("❌ Không tìm thấy file dữ liệu. Vui lòng đảm bảo file nằm trong thư mục dự án.")
+    return None
 
 # Load dữ liệu
 df = load_data()

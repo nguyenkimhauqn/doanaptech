@@ -74,12 +74,45 @@ st.markdown("""
 @st.cache_data
 def load_data():
     """Load dữ liệu từ file CSV"""
-    try:
-        df = pd.read_csv('result.csv', encoding='utf-8')
-        return df
-    except FileNotFoundError:
-        st.error("❌ Không tìm thấy file 'result.csv'")
-        return None
+    import os
+    
+    # Thử các đường dẫn có thể
+    possible_paths = [
+        'result.csv',
+        'App/result.csv',
+        'result_mini.csv',
+        'App/result_mini.csv',
+        'result_sample.csv',
+        'App/result_sample.csv'
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            try:
+                df = pd.read_csv(path, encoding='utf-8')
+                if path.endswith('_sample.csv'):
+                    st.info(f"ℹ️ Đang sử dụng sample data: {len(df):,} bản ghi (File gốc quá lớn để deploy)")
+                else:
+                    st.success(f"✅ Load thành công: {len(df):,} bản ghi")
+                return df
+            except Exception as e:
+                st.warning(f"⚠️ Lỗi đọc file {path}: {e}")
+                continue
+    
+    # Nếu không tìm thấy file nào
+    st.error("""
+    ❌ Không tìm thấy file dữ liệu!
+    
+    **Nguyên nhân có thể:**
+    - File `result.csv` quá lớn (62MB) không thể push lên GitHub
+    - File bị .gitignore
+    
+    **Giải pháp:**
+    1. Sử dụng Git LFS để lưu file lớn
+    2. Upload file lên Google Drive/Dropbox và tải về khi chạy
+    3. Sử dụng sample data (10,000 dòng thay vì 400,000)
+    """)
+    return None
 
 @st.cache_data
 def prepare_data_for_clustering(df):
